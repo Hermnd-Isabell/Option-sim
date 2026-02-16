@@ -1,0 +1,4 @@
+DTE: 23, Spot: 3.40, Implied Spot: 3.63, Diff: 0.23
+DTE: 51, Spot: 3.40, Implied Spot: 3.63, Diff: 0.23
+DTE: 79, Spot: 3.40, Implied Spot: 3.63, Diff: 0.23
+DTE: 170, Spot: 3.40, Implied Spot: 3.63, Diff: 0.23

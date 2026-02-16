@@ -1,0 +1,32 @@
+Inspecting File: data\510050_SH\2020\options_2020-01-02.parquet
+Shape: (160, 12)
+Columns:
+- trade_date
+- expiry_date
+- strike
+- type
+- symbol
+- open
+- high
+- low
+- close
+- volume
+- underlying_close
+- order_book_id
+
+Sample Row (first non-empty):
+  trade_date: 2020-01-02 00:00:00
+  expiry_date: 2020-03-25 00:00:00
+  strike: 2.7060000896453857
+  type: C
+  symbol: 50ETF购3月2706A
+  open: 0.39989998936653137
+  high: 0.42829999327659607
+  low: 0.39989998936653137
+  close: 0.41100001335144043
+  volume: 1153.0
+  underlying_close: nan
+  order_book_id: 10001909
+
+Potential IV candidates:
+MATCH: volume -> 1153.0

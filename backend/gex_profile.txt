@@ -1,0 +1,5 @@
+Date: 2020-06-19
+Rows: 142
+Load Time: 0.0622s
+Calc Time: 0.1274s
+Total Time: 0.1896s
