@@ -15,6 +15,7 @@ from .data_loader import DataLoader
 from .pricing import PricingEngine
 from .risk import RiskEngine, MarginAccount
 from .strategy import BaseStrategy, BacktestContext, Position, Order
+from .execution import ExecutionEngine, ExecutionConfig
 
 warnings.filterwarnings('ignore')
 
@@ -55,6 +56,8 @@ class BacktestEngine:
         # State
         self.context = None
         self.trade_log = []  # Trade history
+        self.last_S = 3.0  # Optional fallback underlying price
+        self.exec_engine = ExecutionEngine(ExecutionConfig())  # Setup execution rules
 
 
         
@@ -124,7 +127,9 @@ class BacktestEngine:
                 
                 # Ultimate fallback
                 if S is None:
-                    S = 3.0  # Reasonable default for 50ETF
+                    S = self.last_S  # Reasonable default for 50ETF
+            
+            self.last_S = S
             
             # Calculate Greeks/Prices
             enriched_options = self.pricer.calculate_all(daily_options, S, 0.20)
@@ -163,11 +168,11 @@ class BacktestEngine:
                  # For MVP, we'll zero it or need to fetch from enriched_options again.
                  row = enriched_options[enriched_options['symbol'] == pos.symbol]
                  if not row.empty:
-                     qty = pos.quantity * 10000 # Contract Multiplier? 
+                     multiplier = self.account.multiplier
+                     qty = pos.quantity * multiplier # Contract Multiplier? 
                      # Wait, delta is usually per share or per contract? 
                      # BSM output delta is 0-1 (per share).
                      # So Position Delta = delta * quantity * multiplier
-                     multiplier = 10000
                      agg_greeks['delta'] += row.iloc[0]['delta'] * pos.quantity * multiplier
                      agg_greeks['gamma'] += row.iloc[0]['gamma'] * pos.quantity * multiplier
                      agg_greeks['vega'] += row.iloc[0]['vega'] * pos.quantity * multiplier
@@ -220,7 +225,7 @@ class BacktestEngine:
                     })
             
             # Update Market Value
-            pos_mv = pos.quantity * pos.current_price * 10000
+            pos_mv = pos.quantity * pos.current_price * self.account.multiplier
             total_market_value += pos_mv
 
         # Calculate Portfolio Margin (Scenario Analysis)
@@ -242,8 +247,6 @@ class BacktestEngine:
             if order.status != "PENDING": continue
             
             if order.symbol in price_map:
-                price = price_map[order.symbol]
-                
                 # 1. Pre-trade Margin Check
                 # Need token detail for margin calc
                 row = market_data[market_data['symbol'] == order.symbol]
@@ -252,18 +255,30 @@ class BacktestEngine:
                 strike = row.iloc[0]['strike']
                 otype = row.iloc[0]['type']
                 
+                # Fetch execution price using ExecutionEngine
+                market_node = {
+                    'close': price_map[order.symbol],
+                    'bid': row.iloc[0].get('bid1', price_map[order.symbol] * 0.998),
+                    'ask': row.iloc[0].get('ask1', price_map[order.symbol] * 1.002),
+                    'high': row.iloc[0].get('high', price_map[order.symbol] * 1.05),
+                    'low': row.iloc[0].get('low', price_map[order.symbol] * 0.95)
+                }
+                
+                side = 'BUY' if order.quantity > 0 else 'SELL'
+                fill_price = self.exec_engine.calculate_fill_price(order.type, side, market_node)
+                
                 # Provisional calculation
                 # We need to knowing if it increases risk.
                 # Simple check: Calculate Margin Impact of this NEW order
                 impact = self.risk.calculate_margin_impact(
-                    underlying_price, strike, otype, price, order.quantity, is_short=(order.quantity < 0)
+                    underlying_price, strike, otype, fill_price, order.quantity, is_short=(order.quantity < 0)
                 )
                 
                 # Check Liquidity
                 # Long: need Cash > Cost
                 # Short: need Excess Liq > Margin Impact
                 
-                cost = order.quantity * price * 10000
+                cost = order.quantity * fill_price * self.account.multiplier
                 
                 if order.quantity > 0: # BUY
                     if self.account.cash < cost:
@@ -277,10 +292,10 @@ class BacktestEngine:
                          continue
 
                 # Execute
-                self._execute_trade(order, price, self.context.current_date)
+                self._execute_trade(order, fill_price, self.context.current_date)
                 
     def _execute_trade(self, order: Order, price: float, date: datetime):
-        cost = order.quantity * price * 10000
+        cost = order.quantity * price * self.account.multiplier
         # Commission (Simple fixed)
         fee = max(5.0, abs(order.quantity) * 2.0) # 2 RMB per contract
         
@@ -298,10 +313,10 @@ class BacktestEngine:
                 close_qty = min(abs(order.quantity), abs(pos.quantity))
                 if pos.quantity > 0:
                     # Long position being closed: (sell price - entry price) * qty * multiplier
-                    realized_pnl = (price - pos.entry_price) * close_qty * 10000
+                    realized_pnl = (price - pos.entry_price) * close_qty * self.account.multiplier
                 else:
                     # Short position being closed: (entry price - buy price) * qty * multiplier
-                    realized_pnl = (pos.entry_price - price) * close_qty * 10000
+                    realized_pnl = (pos.entry_price - price) * close_qty * self.account.multiplier
         
         # Log Trade
         self.trade_log.append({
@@ -338,13 +353,37 @@ class BacktestEngine:
 
     def _liquidate_positions(self, market_data: pd.DataFrame):
         """Force close positions to restore margin."""
-        # Simple LIFO: Close last added positions? 
-        # Or Random? Or Largest Margin User?
-        # MVP: Close all.
         print("   ☠️ LIQUIDATING ALL POSITIONS")
-        self.context.close_all_positions()
-        # Process immediately
-        # self._process_orders(market_data, ...) # Need recursively call or next tick
-        # Simpler: just clear for MVP
-        self.context.positions.clear()
+        
+        # Change execution engine mode to WORST for liquidation penalty
+        original_mode = self.exec_engine.config.fill_mode
+        self.exec_engine.config.fill_mode = 'WORST'
+        
+        price_map = dict(zip(market_data['symbol'], market_data['close']))
+        
+        # Generate closing orders and execute immediately
+        for symbol, pos in list(self.context.positions.items()):
+            if pos.quantity == 0: continue
+            
+            if symbol in price_map:
+                row = market_data[market_data['symbol'] == symbol]
+                if row.empty: continue
+                
+                market_dict = {
+                    'close': price_map[symbol],
+                    'bid': row.iloc[0].get('bid1', price_map[symbol] * 0.998),
+                    'ask': row.iloc[0].get('ask1', price_map[symbol] * 1.002),
+                    'high': row.iloc[0].get('high', price_map[symbol] * 1.05),
+                    'low': row.iloc[0].get('low', price_map[symbol] * 0.95)
+                }
+                
+                close_qty = -pos.quantity
+                side = 'BUY' if close_qty > 0 else 'SELL'
+                fill_price = self.exec_engine.calculate_fill_price('MARKET', side, market_dict)
+                
+                # Mock an order to pass to execute_trade
+                close_order = Order(symbol, close_qty, type="MARKET", status="PENDING")
+                self._execute_trade(close_order, fill_price, self.context.current_date)
+
         self.account.update_balances()
+        self.exec_engine.config.fill_mode = original_mode

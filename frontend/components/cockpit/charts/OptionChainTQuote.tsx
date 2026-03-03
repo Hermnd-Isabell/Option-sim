@@ -72,41 +72,41 @@ export default function OptionChainTQuote({ selectedDate }: OptionChainTQuotePro
     const fetchOptionChain = async () => {
       setLoading(true);
       setError(null);
-      
+
       try {
         const response = await fetch(`http://localhost:8000/api/data/assets?date=${currentDate}&limit=100`);
-        
+
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        
+
         const data = await response.json();
         const assets = data.assets || [];
-        
+
         // Group by expiry date
         const expiryMap = new Map<string, { calls: OptionContract[], puts: OptionContract[], strikes: Set<number> }>();
         const today = new Date(currentDate);
-        
+
         assets.forEach((asset: any) => {
           const expiry = asset.expiry;
           if (!expiryMap.has(expiry)) {
             expiryMap.set(expiry, { calls: [], puts: [], strikes: new Set() });
           }
-          
+
           const group = expiryMap.get(expiry)!;
           group.strikes.add(asset.strike);
-          
+
           // Calculate DTE
           const expiryDate = new Date(expiry);
           const dte = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-          
+
           // Transform to OptionContract format with estimated Greeks
           const sigma = asset.iv || 0.2;
-          const moneyness = asset.type === 'call' 
-            ? (spotPrice - asset.strike) / spotPrice 
+          const moneyness = asset.type === 'call'
+            ? (spotPrice - asset.strike) / spotPrice
             : (asset.strike - spotPrice) / spotPrice;
           const T = Math.max(dte, 1) / 365;
-          
+
           const contract: OptionContract = {
             id: asset.id,
             type: asset.type,
@@ -126,25 +126,25 @@ export default function OptionChainTQuote({ selectedDate }: OptionChainTQuotePro
             theta: -asset.close * 0.05 / Math.max(dte, 1),
             vega: asset.close * 0.1 * Math.sqrt(T),
           };
-          
+
           if (asset.type === 'call') {
             group.calls.push(contract);
           } else {
             group.puts.push(contract);
           }
         });
-        
+
         // Convert to ExpiryGroup array
         const groups: ExpiryGroup[] = Array.from(expiryMap.entries())
           .map(([expiry, group]) => {
             const strikes = Array.from(group.strikes).sort((a, b) => a - b);
             const expiryDate = new Date(expiry);
             const dte = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-            
+
             // Align calls and puts by strike
             const alignedCalls = strikes.map(k => group.calls.find(c => c.strike === k) || createEmptyContract(k, 'call', expiry, dte));
             const alignedPuts = strikes.map(k => group.puts.find(p => p.strike === k) || createEmptyContract(k, 'put', expiry, dte));
-            
+
             return {
               expiry,
               dte,
@@ -155,12 +155,12 @@ export default function OptionChainTQuote({ selectedDate }: OptionChainTQuotePro
           })
           .filter(g => g.dte > -30)  // Include past expiries for historical data
           .sort((a, b) => a.dte - b.dte);
-        
+
         setExpiryGroups(groups);
         if (groups.length > 0 && !selectedExpiry) {
           setSelectedExpiry(groups[0].expiry);
         }
-        
+
         // Estimate spot price from ATM strikes
         if (groups.length > 0 && groups[0].strikes.length > 0) {
           const midStrike = groups[0].strikes[Math.floor(groups[0].strikes.length / 2)];
@@ -173,7 +173,7 @@ export default function OptionChainTQuote({ selectedDate }: OptionChainTQuotePro
         setLoading(false);
       }
     };
-    
+
     fetchOptionChain();
   }, [currentDate]);
 
@@ -205,6 +205,10 @@ export default function OptionChainTQuote({ selectedDate }: OptionChainTQuotePro
   const formatPrice = (p: number) => p.toFixed(4);
   const formatPercent = (p: number) => `${p >= 0 ? '+' : ''}${p.toFixed(2)}%`;
   const formatGreek = (g: number) => g.toFixed(4);
+  const formatStrike = (s: number) => {
+    const sStr = Number(s.toFixed(4)).toString();
+    return sStr.includes('.') && sStr.split('.')[1].length > 2 ? sStr : s.toFixed(2);
+  };
 
   if (loading) {
     return (
@@ -219,7 +223,7 @@ export default function OptionChainTQuote({ selectedDate }: OptionChainTQuotePro
       <div className="flex flex-col items-center justify-center h-96 space-y-4">
         <div className="text-red-500 text-lg">⚠️ 加载失败</div>
         <div className="text-gray-400 text-sm">{error}</div>
-        <button 
+        <button
           onClick={() => setCurrentDate(currentDate)}
           className="px-4 py-2 bg-[var(--accent-primary)] text-white rounded-lg hover:opacity-90"
         >
@@ -259,21 +263,21 @@ export default function OptionChainTQuote({ selectedDate }: OptionChainTQuotePro
               <span className="font-mono font-bold text-[var(--accent-success)]">¥{spotPrice.toFixed(2)}</span>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input 
-                type="checkbox" 
-                checked={showGreeks} 
+              <input
+                type="checkbox"
+                checked={showGreeks}
                 onChange={(e) => setShowGreeks(e.target.checked)}
                 className="accent-[var(--accent-primary)]"
               />
               <span className="text-[var(--text-secondary)]">显示Greeks</span>
             </label>
             <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input 
-                type="checkbox" 
-                checked={highlightATM} 
+              <input
+                type="checkbox"
+                checked={highlightATM}
                 onChange={(e) => setHighlightATM(e.target.checked)}
                 className="accent-[var(--accent-primary)]"
               />
@@ -288,11 +292,10 @@ export default function OptionChainTQuote({ selectedDate }: OptionChainTQuotePro
             <button
               key={group.expiry}
               onClick={() => setSelectedExpiry(group.expiry)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
-                selectedExpiry === group.expiry
+              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${selectedExpiry === group.expiry
                   ? 'bg-[var(--accent-primary)] text-white'
                   : 'bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-card-hover)]'
-              }`}
+                }`}
             >
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
@@ -338,10 +341,10 @@ export default function OptionChainTQuote({ selectedDate }: OptionChainTQuotePro
                   <th className="py-2 px-2 text-right">涨跌</th>
                   <th className="py-2 px-2 text-right">买价</th>
                   <th className="py-2 px-2 text-right bg-[var(--accent-success)]/5">卖价</th>
-                  
+
                   {/* Strike */}
                   <th className="py-2 px-4 text-center bg-[var(--bg-elevated)]">K</th>
-                  
+
                   {/* Put columns */}
                   <th className="py-2 px-2 text-left bg-[var(--accent-danger)]/5">买价</th>
                   <th className="py-2 px-2 text-left">卖价</th>
@@ -364,13 +367,12 @@ export default function OptionChainTQuote({ selectedDate }: OptionChainTQuotePro
                   const isATM = highlightATM && Math.abs(strike - spotPrice) < 0.05;
                   const isITMCall = strike < spotPrice;
                   const isITMPut = strike > spotPrice;
-                  
+
                   return (
-                    <tr 
+                    <tr
                       key={strike}
-                      className={`border-b border-[var(--border-primary)]/30 hover:bg-[var(--bg-card-hover)] transition-colors ${
-                        isATM ? 'bg-[var(--accent-primary)]/10' : ''
-                      }`}
+                      className={`border-b border-[var(--border-primary)]/30 hover:bg-[var(--bg-card-hover)] transition-colors ${isATM ? 'bg-[var(--accent-primary)]/10' : ''
+                        }`}
                     >
                       {/* Call side */}
                       {showGreeks && (
@@ -401,16 +403,15 @@ export default function OptionChainTQuote({ selectedDate }: OptionChainTQuotePro
                       <td className={`py-2 px-2 text-right font-mono font-bold text-[var(--accent-success)] ${isITMCall ? 'bg-[var(--accent-success)]/10' : 'bg-[var(--accent-success)]/5'}`}>
                         {formatPrice(call.ask)}
                       </td>
-                      
+
                       {/* Strike column */}
-                      <td className={`py-2 px-4 text-center font-mono font-bold text-lg ${
-                        isATM 
-                          ? 'bg-[var(--accent-primary)] text-white' 
+                      <td className={`py-2 px-4 text-center font-mono font-bold text-lg ${isATM
+                          ? 'bg-[var(--accent-primary)] text-white'
                           : 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
-                      }`}>
-                        {strike.toFixed(2)}
+                        }`}>
+                        {formatStrike(strike)}
                       </td>
-                      
+
                       {/* Put side */}
                       <td className={`py-2 px-2 text-left font-mono font-bold text-[var(--accent-danger)] ${isITMPut ? 'bg-[var(--accent-danger)]/10' : 'bg-[var(--accent-danger)]/5'}`}>
                         {formatPrice(put.bid)}

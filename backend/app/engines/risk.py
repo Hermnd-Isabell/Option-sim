@@ -104,6 +104,11 @@ class MarginAccount:
     def buying_power(self) -> float:
         """Available funds for new positions."""
         return self.excess_liquidity
+        
+    @property
+    def multiplier(self) -> float:
+        """Get contract multiplier based on asset code."""
+        return get_multiplier(self.asset_code)
 
 
 # ==================== SSE/SZSE Margin Formulas ====================
@@ -140,13 +145,18 @@ class SSEMarginCalculator:
         strike: float,
         premium: float,
         quantity: int,
-        multiplier: float
+        multiplier: float,
+        initial_rate: float = None,
+        maintenance_rate: float = None
     ) -> float:
         """Calculate margin for short call position."""
+        if initial_rate is None: initial_rate = cls.INITIAL_MARGIN_RATE
+        if maintenance_rate is None: maintenance_rate = cls.MAINTENANCE_MARGIN_RATE
+        
         otm_amount = max(0, strike - underlying_price)
         
-        margin_method1 = premium + underlying_price * cls.INITIAL_MARGIN_RATE - otm_amount
-        margin_method2 = premium + underlying_price * cls.MAINTENANCE_MARGIN_RATE
+        margin_method1 = premium + underlying_price * initial_rate - otm_amount
+        margin_method2 = premium + underlying_price * maintenance_rate
         
         margin_per_unit = max(margin_method1, margin_method2)
         return margin_per_unit * multiplier * abs(quantity)
@@ -158,13 +168,18 @@ class SSEMarginCalculator:
         strike: float,
         premium: float,
         quantity: int,
-        multiplier: float
+        multiplier: float,
+        initial_rate: float = None,
+        maintenance_rate: float = None
     ) -> float:
         """Calculate margin for short put position."""
+        if initial_rate is None: initial_rate = cls.INITIAL_MARGIN_RATE
+        if maintenance_rate is None: maintenance_rate = cls.MAINTENANCE_MARGIN_RATE
+        
         otm_amount = max(0, underlying_price - strike)
         
-        margin_method1 = premium + underlying_price * cls.INITIAL_MARGIN_RATE - otm_amount
-        margin_method2 = premium + strike * cls.MAINTENANCE_MARGIN_RATE
+        margin_method1 = premium + underlying_price * initial_rate - otm_amount
+        margin_method2 = premium + strike * maintenance_rate
         
         margin_per_unit = max(margin_method1, margin_method2)
         return margin_per_unit * multiplier * abs(quantity)
@@ -177,7 +192,9 @@ class SSEMarginCalculator:
         option_type: str,  # 'C' or 'P'
         premium: float,
         quantity: int,
-        multiplier: float
+        multiplier: float,
+        initial_rate: float = None,
+        maintenance_rate: float = None
     ) -> float:
         """
         Calculate margin for any option position.
@@ -190,11 +207,11 @@ class SSEMarginCalculator:
         
         if option_type.upper() in ('C', 'CALL'):
             return cls.calculate_short_call_margin(
-                underlying_price, strike, premium, quantity, multiplier
+                underlying_price, strike, premium, quantity, multiplier, initial_rate, maintenance_rate
             )
         else:  # Put
             return cls.calculate_short_put_margin(
-                underlying_price, strike, premium, quantity, multiplier
+                underlying_price, strike, premium, quantity, multiplier, initial_rate, maintenance_rate
             )
 
 
@@ -479,7 +496,9 @@ class PortfolioMarginCalculator:
         cls,
         positions: List[Dict],
         underlying_price: float,
-        multiplier: float = 10000
+        multiplier: float = 10000,
+        initial_rate: float = None,
+        maintenance_rate: float = None
     ) -> float:
         """
         Calculate portfolio margin with spread recognition.
@@ -509,7 +528,9 @@ class PortfolioMarginCalculator:
                 pos['type'],
                 pos.get('current_price', 0),
                 pos['quantity'],
-                multiplier
+                multiplier,
+                initial_rate,
+                maintenance_rate
             )
             total_margin += margin
         
@@ -553,7 +574,8 @@ class RiskEngine:
         
         # Short positions: Use SSE formulas for single position
         return SSEMarginCalculator.calculate_position_margin(
-            underlying_price, strike, type_, premium, int(quantity), self.multiplier
+            underlying_price, strike, type_, premium, int(quantity), self.multiplier,
+            self.account.margin_rate, self.account.maint_rate
         )
     
     def calculate_portfolio_margin(
@@ -601,7 +623,9 @@ class RiskEngine:
                     pos['type'],
                     pos.get('current_price', 0),
                     pos['quantity'],
-                    self.multiplier
+                    self.multiplier,
+                    self.account.margin_rate,
+                    self.account.maint_rate
                 )
                 total += margin
             base_margin = total
@@ -616,7 +640,8 @@ class RiskEngine:
         elif self.scheme == MarginScheme.PM:
             # Portfolio margin with spread recognition
             base_margin = PortfolioMarginCalculator.calculate_portfolio_margin(
-                positions, underlying_price, self.multiplier
+                positions, underlying_price, self.multiplier,
+                self.account.margin_rate, self.account.maint_rate
             )
         
         else:
@@ -641,7 +666,9 @@ class RiskEngine:
                 pos['type'],
                 pos.get('current_price', 0),
                 pos['quantity'],
-                self.multiplier
+                self.multiplier,
+                self.account.margin_rate,
+                self.account.maint_rate
             )
             total += margin
         return total
@@ -674,7 +701,9 @@ class RiskEngine:
                 pos['type'],
                 pos.get('current_price', 0),
                 pos['quantity'],
-                self.multiplier
+                self.multiplier,
+                self.account.margin_rate,
+                self.account.maint_rate
             )
             position_breakdown.append({
                 'strike': pos['strike'],

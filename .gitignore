@@ -78,3 +78,23 @@ backend_debug_log.txt
 # ========================================
 Thumbs.db
 .DS_Store
+
+# ========================================
+# Debug & Diagnostic Output
+# ========================================
+**/diagnostic_report*.txt
+**/output.json
+**/output_utf8.json
+**/verify_out*.txt
+**/error_npm*.txt
+**/help.txt
+strikes_debug.txt
+temp_assets.json
+git_info_combined.txt
+*_debug.txt
+
+# ========================================
+# Virtual Environment
+# ========================================
+.venv/
+venv/

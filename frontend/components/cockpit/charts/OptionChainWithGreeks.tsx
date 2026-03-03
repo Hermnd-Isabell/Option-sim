@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { 
-  Grid3X3, TrendingUp, TrendingDown, Calendar, RefreshCw, 
+import {
+  Grid3X3, TrendingUp, TrendingDown, Calendar, RefreshCw,
   Calculator, ChevronDown, ChevronUp, Activity, Loader2,
   Filter, Search, Eye, EyeOff, Info, Settings, BarChart3,
   Target, Zap, Clock, ArrowUpDown
@@ -50,7 +50,7 @@ interface OptionChainWithGreeksProps {
 // Greeks Tooltip Component
 const GreekTooltip = ({ symbol, children }: { symbol: string; children: React.ReactNode }) => {
   const [show, setShow] = useState(false);
-  
+
   const tooltipContent: Record<string, { name: string; desc: string }> = {
     'Δ': { name: 'Delta', desc: '价格敏感度：标的价格变动1元时，期权价格变动量' },
     'Γ': { name: 'Gamma', desc: 'Delta变化率：标的价格变动1元时，Delta的变化量' },
@@ -60,9 +60,9 @@ const GreekTooltip = ({ symbol, children }: { symbol: string; children: React.Re
     'Vanna': { name: 'Vanna', desc: '二阶Greeks：Delta对波动率的敏感度' },
     'Volga': { name: 'Volga', desc: '二阶Greeks：Vega对波动率的敏感度' },
   };
-  
+
   const info = tooltipContent[symbol] || { name: symbol, desc: '' };
-  
+
   return (
     <div className="relative inline-block" onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
       {children}
@@ -81,7 +81,7 @@ const GreekTooltip = ({ symbol, children }: { symbol: string; children: React.Re
 const MiniIVBar = ({ value, max = 1 }: { value: number; max?: number }) => {
   const width = Math.min((value / max) * 100, 100);
   const color = value > 0.5 ? 'var(--accent-danger)' : value > 0.3 ? 'var(--accent-warning)' : 'var(--accent-success)';
-  
+
   return (
     <div className="flex items-center gap-1">
       <div className="w-12 h-2 bg-[var(--bg-elevated)] rounded-full overflow-hidden">
@@ -95,7 +95,7 @@ const MiniIVBar = ({ value, max = 1 }: { value: number; max?: number }) => {
 // Greeks Radar Chart Component
 const GreeksRadarChart = ({ option }: { option: OptionContract | null }) => {
   if (!option) return null;
-  
+
   const normalizedData = {
     delta: Math.abs(option.delta),
     gamma: Math.min(option.gamma * 20, 1),
@@ -103,7 +103,7 @@ const GreeksRadarChart = ({ option }: { option: OptionContract | null }) => {
     vega: Math.min(option.vega * 5, 1),
     iv: option.iv,
   };
-  
+
   const radarData = [{
     type: 'scatterpolar' as const,
     r: [normalizedData.delta, normalizedData.gamma, normalizedData.theta, normalizedData.vega, normalizedData.iv, normalizedData.delta],
@@ -113,7 +113,7 @@ const GreeksRadarChart = ({ option }: { option: OptionContract | null }) => {
     line: { color: 'rgb(139, 92, 246)', width: 2 },
     marker: { size: 6, color: 'rgb(139, 92, 246)' },
   }];
-  
+
   const layout = {
     polar: {
       radialaxis: { visible: true, range: [0, 1], tickfont: { size: 8, color: '#6b7280' }, gridcolor: '#374151' },
@@ -125,7 +125,7 @@ const GreeksRadarChart = ({ option }: { option: OptionContract | null }) => {
     margin: { l: 40, r: 40, t: 20, b: 20 },
     showlegend: false,
   };
-  
+
   return (
     <div className="glass-card-elevated p-3">
       <div className="flex items-center gap-2 mb-2">
@@ -157,17 +157,17 @@ interface FilterState {
   volumeMin: number;
 }
 
-const FilterBar = ({ 
-  filters, 
-  onFilterChange, 
-  spotPrice 
-}: { 
-  filters: FilterState; 
+const FilterBar = ({
+  filters,
+  onFilterChange,
+  spotPrice
+}: {
+  filters: FilterState;
   onFilterChange: (filters: FilterState) => void;
   spotPrice: number;
 }) => {
   const [expanded, setExpanded] = useState(false);
-  
+
   return (
     <div className="glass-card p-3 space-y-3">
       {/* Quick Filters */}
@@ -176,24 +176,23 @@ const FilterBar = ({
           <Filter className="w-4 h-4 text-[var(--accent-primary)]" />
           <span className="text-sm text-[var(--text-muted)]">快速筛选:</span>
         </div>
-        
+
         {/* Moneyness Filter */}
         <div className="flex gap-1 bg-[var(--bg-elevated)] p-1 rounded-lg">
           {(['all', 'itm', 'atm', 'otm'] as const).map((m) => (
             <button
               key={m}
               onClick={() => onFilterChange({ ...filters, moneyness: m })}
-              className={`px-3 py-1 text-xs rounded transition-all ${
-                filters.moneyness === m 
-                  ? 'bg-[var(--accent-primary)] text-white' 
+              className={`px-3 py-1 text-xs rounded transition-all ${filters.moneyness === m
+                  ? 'bg-[var(--accent-primary)] text-white'
                   : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-              }`}
+                }`}
             >
               {m === 'all' ? '全部' : m === 'itm' ? '价内ITM' : m === 'atm' ? '平值ATM' : '价外OTM'}
             </button>
           ))}
         </div>
-        
+
         {/* Strike Search */}
         <div className="flex items-center gap-2 bg-[var(--bg-elevated)] rounded-lg px-3 py-1.5">
           <Search className="w-4 h-4 text-[var(--text-muted)]" />
@@ -205,7 +204,7 @@ const FilterBar = ({
             className="bg-transparent text-sm text-[var(--text-primary)] w-24 focus:outline-none placeholder:text-[var(--text-muted)]"
           />
         </div>
-        
+
         <button
           onClick={() => setExpanded(!expanded)}
           className="flex items-center gap-1 text-xs text-[var(--accent-primary)] hover:underline"
@@ -215,7 +214,7 @@ const FilterBar = ({
           {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
         </button>
       </div>
-      
+
       {/* Advanced Filters */}
       {expanded && (
         <div className="grid grid-cols-4 gap-4 pt-3 border-t border-[var(--border-primary)]">
@@ -244,7 +243,7 @@ const FilterBar = ({
               />
             </div>
           </div>
-          
+
           {/* IV Range */}
           <div className="space-y-1">
             <label className="text-xs text-[var(--text-muted)]">IV 范围 (%)</label>
@@ -270,7 +269,7 @@ const FilterBar = ({
               />
             </div>
           </div>
-          
+
           {/* Volume Min */}
           <div className="space-y-1">
             <label className="text-xs text-[var(--text-muted)]">最小成交量</label>
@@ -283,7 +282,7 @@ const FilterBar = ({
               className="w-full px-2 py-1 text-xs bg-[var(--bg-elevated)] border border-[var(--border-primary)] rounded"
             />
           </div>
-          
+
           {/* Reset Button */}
           <div className="flex items-end">
             <button
@@ -319,15 +318,15 @@ interface ColumnVisibility {
   volga: boolean;
 }
 
-const ColumnSettings = ({ 
-  visibility, 
-  onVisibilityChange 
-}: { 
-  visibility: ColumnVisibility; 
+const ColumnSettings = ({
+  visibility,
+  onVisibilityChange
+}: {
+  visibility: ColumnVisibility;
   onVisibilityChange: (v: ColumnVisibility) => void;
 }) => {
   const [open, setOpen] = useState(false);
-  
+
   const columns = [
     { key: 'delta', label: 'Delta (Δ)' },
     { key: 'gamma', label: 'Gamma (Γ)' },
@@ -338,7 +337,7 @@ const ColumnSettings = ({
     { key: 'vanna', label: 'Vanna' },
     { key: 'volga', label: 'Volga' },
   ];
-  
+
   return (
     <div className="relative">
       <button
@@ -348,7 +347,7 @@ const ColumnSettings = ({
         <Eye className="w-3 h-3" />
         列设置
       </button>
-      
+
       {open && (
         <div className="absolute right-0 top-full mt-2 p-3 bg-[var(--bg-elevated)] border border-[var(--border-primary)] rounded-lg shadow-lg z-50 min-w-[160px]">
           <div className="text-xs font-medium text-[var(--text-muted)] mb-2">显示列</div>
@@ -382,7 +381,7 @@ export default function OptionChainWithGreeks({ selectedDate, dateRange, dataset
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [selectedRowIndex, setSelectedRowIndex] = useState<number>(-1);
   const tableRef = useRef<HTMLDivElement>(null);
-  
+
   // Filter state
   const [filters, setFilters] = useState<FilterState>({
     moneyness: 'all',
@@ -393,7 +392,7 @@ export default function OptionChainWithGreeks({ selectedDate, dateRange, dataset
     strikeSearch: '',
     volumeMin: 0,
   });
-  
+
   // Column visibility state
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
     delta: true,
@@ -409,12 +408,12 @@ export default function OptionChainWithGreeks({ selectedDate, dateRange, dataset
   // Keyboard navigation
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!tableRef.current) return;
-    
+
     const currentGroup = expiryGroups.find(g => g.expiry === selectedExpiry);
     if (!currentGroup) return;
-    
+
     const maxIndex = currentGroup.strikes.length - 1;
-    
+
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setSelectedRowIndex(prev => Math.min(prev + 1, maxIndex));
@@ -471,31 +470,31 @@ export default function OptionChainWithGreeks({ selectedDate, dateRange, dataset
     const fetchOptionChain = async () => {
       setLoading(true);
       setError(null);
-      
+
       try {
         // Step 1: Get basic asset data
         const assetsResponse = await fetch(`http://localhost:8000/api/data/assets?date=${currentDate}&limit=200&dataset_id=${datasetId}`);
-        
+
         if (!assetsResponse.ok) {
           throw new Error(`HTTP ${assetsResponse.status}: ${assetsResponse.statusText}`);
         }
-        
+
         const assetsData = await assetsResponse.json();
         const assets = assetsData.assets || [];
-        
+
         if (assets.length === 0) {
           setExpiryGroups([]);
           setLoading(false);
           return;
         }
-        
+
         // Estimate spot price from mid strike
         const strikes = assets.map((a: any) => a.strike).filter((s: number) => s > 0);
-        const estimatedSpot = strikes.length > 0 
-          ? strikes[Math.floor(strikes.length / 2)] 
+        const estimatedSpot = strikes.length > 0
+          ? strikes[Math.floor(strikes.length / 2)]
           : 3.0;
         setSpotPrice(estimatedSpot);
-        
+
         // Step 2: Fetch accurate Greeks from backend API
         let greeksMap = new Map<string, any>();
         try {
@@ -509,7 +508,7 @@ export default function OptionChainWithGreeks({ selectedDate, dateRange, dataset
               dataset_id: datasetId
             })
           });
-          
+
           if (greeksResponse.ok) {
             const greeksData = await greeksResponse.json();
             // Build a map of id -> greeks for quick lookup
@@ -521,26 +520,26 @@ export default function OptionChainWithGreeks({ selectedDate, dateRange, dataset
         } catch (greeksErr) {
           console.warn('Greeks API not available, using fallback:', greeksErr);
         }
-        
+
         // Step 3: Group by expiry date and merge Greeks
         const expiryMap = new Map<string, { calls: OptionContract[], puts: OptionContract[], strikes: Set<number> }>();
         const today = new Date(currentDate);
-        
+
         assets.forEach((asset: any) => {
           const expiry = asset.expiry;
           if (!expiryMap.has(expiry)) {
             expiryMap.set(expiry, { calls: [], puts: [], strikes: new Set() });
           }
-          
+
           const group = expiryMap.get(expiry)!;
           group.strikes.add(asset.strike);
-          
+
           const expiryDate = new Date(expiry);
           const dte = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-          
+
           // Look up Greeks from backend response
           const greeksInfo = greeksMap.get(asset.id);
-          
+
           // Use backend Greeks if available, otherwise use asset data or fallback
           const iv = greeksInfo?.iv ?? asset.iv ?? 0.2;
           const delta = greeksInfo?.delta ?? (asset.type === 'call' ? 0.5 : -0.5);
@@ -549,7 +548,7 @@ export default function OptionChainWithGreeks({ selectedDate, dateRange, dataset
           const vega = greeksInfo?.vega ?? 0.1;
           const vanna = greeksInfo?.vanna ?? 0;
           const volga = greeksInfo?.volga ?? 0;
-          
+
           const contract: OptionContract = {
             id: asset.id,
             type: asset.type,
@@ -571,29 +570,29 @@ export default function OptionChainWithGreeks({ selectedDate, dateRange, dataset
             vanna: vanna,
             volga: volga,
           };
-          
+
           if (asset.type === 'call') {
             group.calls.push(contract);
           } else {
             group.puts.push(contract);
           }
         });
-        
+
         // Convert to ExpiryGroup array
         const groups: ExpiryGroup[] = Array.from(expiryMap.entries())
           .map(([expiry, group]) => {
             const strikes = Array.from(group.strikes).sort((a, b) => a - b);
             const expiryDate = new Date(expiry);
             const dte = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-            
+
             const alignedCalls = strikes.map(k => group.calls.find(c => c.strike === k) || createEmptyContract(k, 'call', expiry, dte));
             const alignedPuts = strikes.map(k => group.puts.find(p => p.strike === k) || createEmptyContract(k, 'put', expiry, dte));
-            
+
             return { expiry, dte, strikes, calls: alignedCalls, puts: alignedPuts };
           })
           .filter(g => g.dte > 0)
           .sort((a, b) => a.dte - b.dte);
-        
+
         setExpiryGroups(groups);
         if (groups.length > 0 && !selectedExpiry) {
           setSelectedExpiry(groups[0].expiry);
@@ -605,7 +604,7 @@ export default function OptionChainWithGreeks({ selectedDate, dateRange, dataset
         setLoading(false);
       }
     };
-    
+
     fetchOptionChain();
   }, [currentDate, datasetId]);
 
@@ -624,35 +623,35 @@ export default function OptionChainWithGreeks({ selectedDate, dateRange, dataset
   // Apply filters to current group
   const filteredStrikes = useMemo(() => {
     if (!currentGroup) return [];
-    
+
     return currentGroup.strikes.filter((strike, idx) => {
       const call = currentGroup.calls[idx];
       const put = currentGroup.puts[idx];
-      
+
       // Moneyness filter
       const isITMCall = strike < spotPrice;
       const isITMPut = strike > spotPrice;
       const isATM = Math.abs(strike - spotPrice) < 0.05;
-      
+
       if (filters.moneyness === 'itm' && !isITMCall && !isITMPut) return false;
       if (filters.moneyness === 'otm' && (isITMCall || isITMPut)) return false;
       if (filters.moneyness === 'atm' && !isATM) return false;
-      
+
       // Strike search
       if (filters.strikeSearch && !strike.toString().includes(filters.strikeSearch)) return false;
-      
+
       // Delta range (use absolute value for comparison)
       const maxDelta = Math.max(Math.abs(call.delta), Math.abs(put.delta));
       if (maxDelta < filters.deltaMin || maxDelta > filters.deltaMax) return false;
-      
+
       // IV range
       const maxIV = Math.max(call.iv, put.iv) * 100;
       if (maxIV < filters.ivMin || maxIV > filters.ivMax) return false;
-      
+
       // Volume filter
       const totalVolume = call.volume + put.volume;
       if (totalVolume < filters.volumeMin) return false;
-      
+
       return true;
     });
   }, [currentGroup, filters, spotPrice]);
@@ -679,7 +678,11 @@ export default function OptionChainWithGreeks({ selectedDate, dateRange, dataset
   const formatPrice = (p: number) => p.toFixed(4);
   const formatPercent = (p: number) => `${p >= 0 ? '+' : ''}${p.toFixed(2)}%`;
   const formatGreek = (g: number) => g.toFixed(4);
-  
+  const formatStrike = (s: number) => {
+    const sStr = Number(s.toFixed(4)).toString();
+    return sStr.includes('.') && sStr.split('.')[1].length > 2 ? sStr : s.toFixed(2);
+  };
+
   // Volume heatmap color
   const getVolumeColor = (volume: number, maxVol: number) => {
     const intensity = Math.min(volume / (maxVol || 1), 1);
@@ -706,7 +709,7 @@ export default function OptionChainWithGreeks({ selectedDate, dateRange, dataset
       <div className="flex flex-col items-center justify-center h-96 space-y-4">
         <div className="text-red-500 text-lg">⚠️ 加载失败</div>
         <div className="text-gray-400 text-sm">{error}</div>
-        <button 
+        <button
           onClick={() => setCurrentDate(currentDate)}
           className="px-4 py-2 bg-[var(--accent-primary)] text-white rounded-lg hover:opacity-90"
         >
@@ -752,22 +755,22 @@ export default function OptionChainWithGreeks({ selectedDate, dateRange, dataset
               显示 {filteredStrikes.length} / {currentGroup?.strikes.length || 0} 行权价
             </div>
           </div>
-          
+
           <div className="flex items-center gap-4">
             <ColumnSettings visibility={columnVisibility} onVisibilityChange={setColumnVisibility} />
             <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input 
-                type="checkbox" 
-                checked={showAdvancedGreeks} 
+              <input
+                type="checkbox"
+                checked={showAdvancedGreeks}
                 onChange={(e) => setShowAdvancedGreeks(e.target.checked)}
                 className="accent-[var(--accent-primary)]"
               />
               <span className="text-[var(--text-secondary)]">二阶Greeks</span>
             </label>
             <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input 
-                type="checkbox" 
-                checked={highlightATM} 
+              <input
+                type="checkbox"
+                checked={highlightATM}
                 onChange={(e) => setHighlightATM(e.target.checked)}
                 className="accent-[var(--accent-primary)]"
               />
@@ -782,11 +785,10 @@ export default function OptionChainWithGreeks({ selectedDate, dateRange, dataset
             <button
               key={group.expiry}
               onClick={() => setSelectedExpiry(group.expiry)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
-                selectedExpiry === group.expiry
+              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${selectedExpiry === group.expiry
                   ? 'bg-[var(--accent-primary)] text-white'
                   : 'bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-card-hover)]'
-              }`}
+                }`}
             >
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
@@ -854,7 +856,7 @@ export default function OptionChainWithGreeks({ selectedDate, dateRange, dataset
                 <thead className="sticky top-0 z-10 bg-[var(--bg-card)]">
                   <tr className="border-b border-[var(--border-primary)]">
                     <th colSpan={
-                      (showAdvancedGreeks && columnVisibility.vanna ? 1 : 0) + 
+                      (showAdvancedGreeks && columnVisibility.vanna ? 1 : 0) +
                       (showAdvancedGreeks && columnVisibility.volga ? 1 : 0) +
                       (columnVisibility.delta ? 1 : 0) +
                       (columnVisibility.gamma ? 1 : 0) +
@@ -869,7 +871,7 @@ export default function OptionChainWithGreeks({ selectedDate, dateRange, dataset
                       行权价
                     </th>
                     <th colSpan={
-                      (showAdvancedGreeks && columnVisibility.vanna ? 1 : 0) + 
+                      (showAdvancedGreeks && columnVisibility.vanna ? 1 : 0) +
                       (showAdvancedGreeks && columnVisibility.volga ? 1 : 0) +
                       (columnVisibility.delta ? 1 : 0) +
                       (columnVisibility.gamma ? 1 : 0) +
@@ -899,9 +901,9 @@ export default function OptionChainWithGreeks({ selectedDate, dateRange, dataset
                     {columnVisibility.vega && <th className="py-2 px-2 text-right"><GreekTooltip symbol="ν"><span className="cursor-help">ν</span></GreekTooltip></th>}
                     {columnVisibility.iv && <th className="py-2 px-2 text-right"><GreekTooltip symbol="IV"><span className="cursor-help">IV</span></GreekTooltip></th>}
                     <th className="py-2 px-2 text-right bg-[var(--accent-success)]/5">卖价</th>
-                    
+
                     <th className="py-2 px-4 text-center bg-[var(--bg-elevated)]">K</th>
-                    
+
                     <th className="py-2 px-2 text-left bg-[var(--accent-danger)]/5">买价</th>
                     {columnVisibility.iv && <th className="py-2 px-2 text-left"><GreekTooltip symbol="IV"><span className="cursor-help">IV</span></GreekTooltip></th>}
                     {columnVisibility.delta && <th className="py-2 px-2 text-left"><GreekTooltip symbol="Δ"><span className="cursor-help">Δ</span></GreekTooltip></th>}
@@ -929,17 +931,16 @@ export default function OptionChainWithGreeks({ selectedDate, dateRange, dataset
                     const isITMCall = strike < spotPrice;
                     const isITMPut = strike > spotPrice;
                     const isSelected = selectedRowIndex === idx;
-                    
+
                     return (
-                      <tr 
+                      <tr
                         key={`${strike}-${idx}`}
                         onClick={() => {
                           setSelectedRowIndex(idx);
                           setSelectedOption(call);
                         }}
-                        className={`border-b border-[var(--border-primary)]/30 hover:bg-[var(--bg-card-hover)] transition-colors cursor-pointer ${
-                          isATM ? 'bg-[var(--accent-primary)]/10' : ''
-                        } ${isSelected ? 'ring-1 ring-[var(--accent-primary)]' : ''}`}
+                        className={`border-b border-[var(--border-primary)]/30 hover:bg-[var(--bg-card-hover)] transition-colors cursor-pointer ${isATM ? 'bg-[var(--accent-primary)]/10' : ''
+                          } ${isSelected ? 'ring-1 ring-[var(--accent-primary)]' : ''}`}
                         style={{ backgroundColor: isSelected ? 'rgba(139, 92, 246, 0.15)' : undefined }}
                       >
                         {/* Call side */}
@@ -978,24 +979,23 @@ export default function OptionChainWithGreeks({ selectedDate, dateRange, dataset
                             <MiniIVBar value={call.iv} max={maxIV} />
                           </td>
                         )}
-                        <td 
+                        <td
                           className={`py-2 px-2 text-right font-mono font-bold text-[var(--accent-success)] ${isITMCall ? 'bg-[var(--accent-success)]/10' : 'bg-[var(--accent-success)]/5'}`}
                           style={{ backgroundColor: getVolumeColor(call.volume, maxVolume) }}
                         >
                           {formatPrice(call.ask)}
                         </td>
-                        
+
                         {/* Strike column */}
-                        <td className={`py-2 px-4 text-center font-mono font-bold text-lg ${
-                          isATM 
-                            ? 'bg-[var(--accent-primary)] text-white' 
+                        <td className={`py-2 px-4 text-center font-mono font-bold text-lg ${isATM
+                            ? 'bg-[var(--accent-primary)] text-white'
                             : 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
-                        }`}>
-                          {strike.toFixed(2)}
+                          }`}>
+                          {formatStrike(strike)}
                         </td>
-                        
+
                         {/* Put side */}
-                        <td 
+                        <td
                           className={`py-2 px-2 text-left font-mono font-bold text-[var(--accent-danger)] ${isITMPut ? 'bg-[var(--accent-danger)]/10' : 'bg-[var(--accent-danger)]/5'}`}
                           style={{ backgroundColor: getVolumeColor(put.volume, maxVolume) }}
                         >
@@ -1049,7 +1049,7 @@ export default function OptionChainWithGreeks({ selectedDate, dateRange, dataset
         <div className="space-y-4">
           {/* Greeks Radar Chart */}
           <GreeksRadarChart option={selectedOption} />
-          
+
           {/* Selected Option Actions */}
           {selectedOption && (
             <div className="glass-card-elevated p-3 space-y-3">
@@ -1073,7 +1073,7 @@ export default function OptionChainWithGreeks({ selectedDate, dateRange, dataset
               </div>
             </div>
           )}
-          
+
           {/* Keyboard Hint */}
           <div className="glass-card p-3 text-xs text-[var(--text-muted)]">
             <div className="flex items-center gap-2 mb-1">
